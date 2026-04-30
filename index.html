@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Il Dado — Nassau Treasure Rush</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:       #1a120a;
+    --parchment: #f2e8d0;
+    --parch-dark:#e0ceac;
+    --brass:     #b8860b;
+    --brass-lt:  #d4a017;
+    --brass-glow:#ffd700;
+    --rope:      #8b6914;
+    --bad:       #8b1a1a;
+    --bad-lt:    #c0392b;
+    --neu:       #5a4a2a;
+    --good:      #1a5c2a;
+    --good-lt:   #27ae60;
+    --shadow:    rgba(10,5,0,0.7);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Crimson Text', serif;
+    overflow: hidden;
+  }
+
+  /* ── OVERLAY ── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(20,10,0,0.85) 0%, rgba(0,0,0,0.95) 100%);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn .4s ease;
+  }
+  @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+
+  /* ── CARD ── */
+  .card {
+    position: relative;
+    width: min(420px, 92vw);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E"),
+      linear-gradient(160deg, #f5e8c8 0%, #ead5a0 40%, #d9c080 100%);
+    border: 2px solid var(--brass);
+    border-radius: 4px;
+    box-shadow:
+      0 0 0 1px rgba(184,134,11,0.3),
+      0 0 40px rgba(184,134,11,0.25),
+      0 20px 60px var(--shadow),
+      inset 0 1px 0 rgba(255,255,255,0.4);
+    padding: 32px 28px 28px;
+    animation: slideUp .5s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes slideUp {
+    from { transform: translateY(30px) scale(.96); opacity:0 }
+    to   { transform: translateY(0)    scale(1);   opacity:1 }
+  }
+
+  /* corner ornaments */
+  .card::before, .card::after {
+    content: '✦';
+    position: absolute;
+    color: var(--brass);
+    font-size: 12px;
+    opacity: .6;
+  }
+  .card::before { top: 8px; left: 10px; }
+  .card::after  { top: 8px; right: 10px; }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .eyebrow {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: .25em;
+    color: var(--brass);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .title {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 10px 0 0;
+  }
+  .divider-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--brass), transparent);
+  }
+  .divider-sym { color: var(--brass); font-size: 14px; }
+
+  /* ── DICE STAGE ── */
+  .stage {
+    perspective: 600px;
+    display: flex; justify-content: center;
+    margin: 24px 0;
+    height: 110px;
+  }
+  .scene {
+    width: 90px; height: 90px;
+    transform-style: preserve-3d;
+    animation: none;
+    cursor: pointer;
+    transition: transform .1s;
+    position: relative;
+  }
+  .scene:hover:not(.rolling):not(.rolled) {
+    transform: rotateX(-10deg) rotateY(10deg);
+  }
+  .scene.rolling {
+    animation: tumble 1.8s cubic-bezier(.4,0,.6,1) forwards;
+    cursor: default;
+  }
+  @keyframes tumble {
+    0%   { transform: rotateX(0) rotateY(0) rotateZ(0) }
+    25%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) }
+    50%  { transform: rotateX(540deg) rotateY(360deg) rotateZ(180deg) }
+    75%  { transform: rotateX(720deg) rotateY(480deg) rotateZ(270deg) }
+    100% { transform: var(--final-rot) }
+  }
+
+  .face {
+    position: absolute;
+    width: 90px; height: 90px;
+    border: 2px solid rgba(184,134,11,0.5);
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #2a1a08 0%, #1a0f04 100%);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    backface-visibility: hidden;
+  }
+  .face-front  { transform: rotateY(0)    translateZ(45px); }
+  .face-back   { transform: rotateY(180deg) translateZ(45px); }
+  .face-right  { transform: rotateY(90deg)  translateZ(45px); }
+  .face-left   { transform: rotateY(-90deg) translateZ(45px); }
+  .face-top    { transform: rotateX(90deg)  translateZ(45px); }
+  .face-bottom { transform: rotateX(-90deg) translateZ(45px); }
+
+  .dots {
+    display: grid;
+    width: 60px; height: 60px;
+    padding: 6px;
+    gap: 4px;
+  }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #d4a017, #8b6914);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 4px rgba(212,160,23,0.3);
+  }
+  .dot.h { visibility: hidden; }
+
+  /* face 1 */
+  .d1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  /* face 2 */
+  .d2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+  /* face 3 */
+  .d3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+  /* face 4 */
+  .d4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  /* face 5 */
+  .d5 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+  /* face 6 */
+  .d6 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+
+  .dice-shadow {
+    position: absolute;
+    bottom: -18px; left: 50%;
+    transform: translateX(-50%);
+    width: 70px; height: 10px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
+    filter: blur(4px);
+  }
+
+  /* ── PROMPT ── */
+  .prompt {
+    text-align: center;
+    font-size: 15px;
+    color: var(--ink);
+    font-style: italic;
+    opacity: .75;
+    margin-bottom: 8px;
+    transition: opacity .3s;
+  }
+
+  /* ── ROLL BUTTON ── */
+  .btn-roll {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(160deg, #c9950a 0%, #8b6400 100%);
+    border: 1px solid #a07000;
+    border-radius: 3px;
+    color: var(--parchment);
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: all .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-roll::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .btn-roll:hover:not(:disabled) {
+    background: linear-gradient(160deg, #d4a017 0%, #9a7000 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .btn-roll:active:not(:disabled) { transform: translateY(1px); }
+  .btn-roll:disabled { opacity: .5; cursor: default; }
+
+  /* ── RESULT PANEL ── */
+  .result {
+    display: none;
+    margin-top: 20px;
+    animation: resultIn .5s cubic-bezier(.22,1,.36,1);
+  }
+  .result.show { display: block; }
+  @keyframes resultIn {
+    from { opacity:0; transform: translateY(10px) }
+    to   { opacity:1; transform: translateY(0) }
+  }
+
+  .result-badge {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    border-radius: 3px;
+    margin-bottom: 14px;
+    border: 1px solid;
+  }
+  .result-badge.bad  { background: rgba(139,26,26,.12); border-color: rgba(139,26,26,.35); }
+  .result-badge.neu  { background: rgba(90,74,42,.1);   border-color: rgba(90,74,42,.3);   }
+  .result-badge.good { background: rgba(26,92,42,.12);  border-color: rgba(26,92,42,.35);  }
+
+  .result-num {
+    font-family: 'Cinzel', serif;
+    font-size: 36px;
+    font-weight: 700;
+    min-width: 44px;
+    text-align: center;
+    line-height: 1;
+  }
+  .bad  .result-num { color: var(--bad-lt); }
+  .neu  .result-num { color: var(--neu); }
+  .good .result-num { color: var(--good-lt); }
+
+  .result-info { flex: 1; }
+  .result-type {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .bad  .result-type { color: var(--bad-lt); }
+  .neu  .result-type { color: var(--neu); }
+  .good .result-type { color: var(--good-lt); }
+
+  .result-effect {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  .mary-read-says {
+    background: rgba(26,18,10,.06);
+    border-left: 3px solid var(--brass);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    border-radius: 0 3px 3px 0;
+  }
+  .mary-read-label {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--brass);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .mary-read-text {
+    font-size: 14px;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+
+  .btn-continue {
+    display: block; width: 100%;
+    padding: 12px;
+    background: linear-gradient(160deg, #2a1a08 0%, #1a0f04 100%);
+    border: 1px solid var(--brass);
+    border-radius: 3px;
+    color: var(--brass-lt);
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    cursor: pointer;
+    transition: all .15s;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  }
+  .btn-continue:hover {
+    background: linear-gradient(160deg, #3a2a12 0%, #261608 100%);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 12px rgba(184,134,11,0.2);
+  }
+
+  /* ── SPARKLES on good roll ── */
+  .sparkle {
+    position: absolute;
+    pointer-events: none;
+    animation: spark 1s ease-out forwards;
+  }
+  @keyframes spark {
+    0%   { opacity:1; transform: translate(0,0) scale(1) }
+    100% { opacity:0; transform: translate(var(--tx), var(--ty)) scale(0) }
+  }
+
+  /* ── NUMBER GLOW on result ── */
+  .glow-bad  { text-shadow: 0 0 20px rgba(192,57,43,.6); }
+  .glow-neu  { text-shadow: 0 0 20px rgba(90,74,42,.4); }
+  .glow-good { text-shadow: 0 0 20px rgba(39,174,96,.6), 0 0 40px rgba(39,174,96,.3); }
+</style>
+</head>
+<body>
+
+<div class="overlay">
+  <div class="card" id="card">
+
+    <div class="header">
+      <div class="eyebrow">Nassau Treasure Rush</div>
+      <div class="title">I Caraibi hanno<br>le loro regole</div>
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-sym">⚓</div>
+        <div class="divider-line"></div>
+      </div>
+    </div>
+
+    <!-- DICE -->
+    <div class="stage">
+      <div class="scene" id="scene" onclick="rollDice()">
+
+        <!-- Face 1 (front) -->
+        <div class="face face-front">
+          <div class="dots d1"><div class="dot"></div></div>
+        </div>
+        <!-- Face 6 (back) -->
+        <div class="face face-back">
+          <div class="dots d6">
+            <div class="dot"></div><div class="dot"></div>
+            <div class="dot"></div><div class="dot"></div>
+            <div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <!-- Face 2 (right) -->
+        <div class="face face-right">
+          <div class="dots d2"><div class="dot"></div><div class="dot"></div></div>
+        </div>
+        <!-- Face 5 (left) -->
+        <div class="face face-left">
+          <div class="dots d5">
+            <div class="dot"></div><div class="dot h"></div>
+            <div class="dot"></div><div class="dot"></div>
+            <div class="dot h"></div><div class="dot"></div>
+          </div>
+        </div>
+        <!-- Face 3 (top) -->
+        <div class="face face-top">
+          <div class="dots d3">
+            <div class="dot h"></div><div class="dot"></div>
+            <div class="dot"></div><div class="dot h"></div>
+            <div class="dot h"></div><div class="dot"></div>
+          </div>
+        </div>
+        <!-- Face 4 (bottom) -->
+        <div class="face face-bottom">
+          <div class="dots d4">
+            <div class="dot"></div><div class="dot"></div>
+            <div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="dice-shadow"></div>
+      </div>
+    </div>
+
+    <p class="prompt" id="prompt">Clicca il dado o premi il pulsante per lanciare</p>
+
+    <button class="btn-roll" id="btnRoll" onclick="rollDice()">
+      ⚄ &nbsp; Lancia il dado
+    </button>
+
+    <!-- RESULT -->
+    <div class="result" id="result">
+      <div class="result-badge" id="badge">
+        <div class="result-num" id="resNum"></div>
+        <div class="result-info">
+          <div class="result-type" id="resType"></div>
+          <div class="result-effect" id="resEffect"></div>
+        </div>
+      </div>
+      <div class="mary-read-says">
+        <div class="mary-read-label">Mary Read dice</div>
+        <div class="mary-read-text" id="maryText"></div>
+      </div>
+      <button class="btn-continue" id="btnContinue" onclick="continueGame()">
+        Avanti &rarr;
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const RESULTS = {
+  1: {
+    cls: 'bad',
+    type: 'Vento Contrario',
+    effect: '+3 minuti al tempo finale',
+    mary: '"Vento contrario. Tre minuti in più sul cronometro — ma i pirati non si fermano per il vento. Avanti."',
+    penalty: 3,
+    glow: 'glow-bad'
+  },
+  2: {
+    cls: 'bad',
+    type: 'Vento Contrario',
+    effect: '+3 minuti al tempo finale',
+    mary: '"Brutto tiro. Il mare non è sempre dalla tua parte. Avanti lo stesso."',
+    penalty: 3,
+    glow: 'glow-bad'
+  },
+  3: {
+    cls: 'neu',
+    type: 'Mare Piatto',
+    effect: 'Nessun effetto — dipende da te',
+    mary: '"Mare piatto. Né bene né male. Dipenderà da te."',
+    penalty: 0,
+    glow: 'glow-neu'
+  },
+  4: {
+    cls: 'neu',
+    type: 'Corrente Neutra',
+    effect: 'Nessun effetto — dipende da te',
+    mary: '"Corrente neutra. Tutto dipende da te adesso."',
+    penalty: 0,
+    glow: 'glow-neu'
+  },
+  5: {
+    cls: 'good',
+    type: 'Vento in Poppa',
+    effect: 'Suggerimento gratuito disponibile',
+    mary: '"Vento in poppa. Hai un suggerimento gratuito per questa tappa — usalo quando vuoi."',
+    penalty: -1, // -1 = hint gratuito
+    glow: 'glow-good'
+  },
+  6: {
+    cls: 'good',
+    type: 'Fortuna Piena',
+    effect: 'Suggerimento gratuito + prima domanda risolta',
+    mary: '"Sei fortunato come pochi. Oggi Nassau è completamente dalla tua parte — goditi la vista."',
+    penalty: -2, // -2 = hint gratuito + Q1 auto
+    glow: 'glow-good'
+  }
+};
+
+// Rotazioni finali per mostrare ciascun numero
+// (rotateX, rotateY) che porta la faccia in front
+const FACE_ROTATIONS = {
+  1: 'rotateX(0deg)   rotateY(0deg)',
+  2: 'rotateX(0deg)   rotateY(-90deg)',
+  3: 'rotateX(-90deg) rotateY(0deg)',
+  4: 'rotateX(90deg)  rotateY(0deg)',
+  5: 'rotateX(0deg)   rotateY(90deg)',
+  6: 'rotateX(0deg)   rotateY(180deg)'
+};
+
+let rolled = false;
+let rolling = false;
+
+function rollDice() {
+  if (rolling || rolled) return;
+  rolling = true;
+
+  const scene   = document.getElementById('scene');
+  const btnRoll = document.getElementById('btnRoll');
+  const prompt  = document.getElementById('prompt');
+
+  btnRoll.disabled = true;
+  prompt.style.opacity = '.3';
+  prompt.textContent = 'Il dado rotola…';
+
+  const num = Math.floor(Math.random() * 6) + 1;
+  const finalRot = FACE_ROTATIONS[num];
+
+  scene.style.setProperty('--final-rot', finalRot);
+  scene.classList.add('rolling');
+
+  // suono (silenzioso se non supportato)
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 180 + Math.random() * 120;
+        g.gain.setValueAtTime(.06, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .08);
+        o.start(); o.stop(ctx.currentTime + .08);
+      }, i * 160);
+    }
+  } catch(e) {}
+
+  setTimeout(() => {
+    scene.classList.remove('rolling');
+    scene.classList.add('rolled');
+    rolling = false;
+    rolled  = true;
+    showResult(num);
+  }, 1900);
+}
+
+function showResult(num) {
+  const data   = RESULTS[num];
+  const result = document.getElementById('result');
+  const badge  = document.getElementById('badge');
+  const resNum = document.getElementById('resNum');
+  const resType   = document.getElementById('resType');
+  const resEffect = document.getElementById('resEffect');
+  const maryText  = document.getElementById('maryText');
+  const prompt    = document.getElementById('prompt');
+
+  badge.className    = 'result-badge ' + data.cls;
+  resNum.className   = 'result-num '   + data.glow;
+  resNum.textContent = num;
+  resType.textContent   = data.type;
+  resEffect.textContent = data.effect;
+  maryText.textContent  = data.mary;
+
+  prompt.style.opacity = '0';
+  result.classList.add('show');
+
+  // Sparkles for good rolls
+  if (data.cls === 'good') {
+    const card = document.getElementById('card');
+    for (let i = 0; i < 12; i++) {
+      const sp = document.createElement('div');
+      sp.className = 'sparkle';
+      sp.innerHTML = ['✦','★','✧','⚡'][Math.floor(Math.random()*4)];
+      sp.style.cssText = `
+        position: absolute;
+        font-size: ${8 + Math.random()*10}px;
+        color: ${data.cls === 'good' ? '#ffd700' : '#d4a017'};
+        left: ${20 + Math.random()*60}%;
+        top:  ${20 + Math.random()*60}%;
+        --tx: ${(Math.random()-.5)*80}px;
+        --ty: ${(Math.random()-.5)*80}px;
+        animation-delay: ${Math.random()*.4}s;
+        pointer-events: none;
+        z-index: 10;
+      `;
+      card.appendChild(sp);
+      setTimeout(() => sp.remove(), 1400);
+    }
+  }
+
+  // Comunica con 3DVista
+  notifyTour(num, data);
+}
+
+function notifyTour(num, data) {
+  // Metodo 1: postMessage al parent (se in iframe)
+  try {
+    window.parent.postMessage({
+      type:    'dado_result',
+      numero:  num,
+      classe:  data.cls,
+      penalita: data.penalty
+    }, '*');
+  } catch(e) {}
+
+  // Metodo 2: variabile globale accessibile da 3DVista
+  window.dadoResult = {
+    numero:   num,
+    classe:   data.cls,
+    penalita: data.penalty
+  };
+
+  // Metodo 3: callback 3DVista (se disponibile)
+  try {
+    if (typeof vtour !== 'undefined' && vtour.set) {
+      vtour.set('dado_result', num);
+      vtour.set('dado_penalita', data.penalty);
+    }
+  } catch(e) {}
+}
+
+function continueGame() {
+  // Chiude il popup e notifica il tour di continuare
+  try {
+    window.parent.postMessage({ type: 'dado_continue' }, '*');
+  } catch(e) {}
+
+  // Fade out
+  document.querySelector('.overlay').style.transition = 'opacity .3s';
+  document.querySelector('.overlay').style.opacity = '0';
+  setTimeout(() => {
+    try { window.parent.document.querySelector('.dado-popup')?.remove(); } catch(e) {}
+    document.querySelector('.overlay').style.opacity = '1';
+    // Reset per eventuale riutilizzo
+    rolled = false;
+    document.getElementById('result').classList.remove('show');
+    document.getElementById('btnRoll').disabled = false;
+    document.getElementById('prompt').style.opacity = '.75';
+    document.getElementById('prompt').textContent = 'Clicca il dado o premi il pulsante per lanciare';
+    document.getElementById('scene').classList.remove('rolled');
+  }, 350);
+}
+</script>
+
+</body>
+</html>
